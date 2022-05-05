@@ -1,25 +1,47 @@
-# hello-world.yaml
-name: Hello World!
+name: pages
 
 on:
   push:
-  workflow_dispatch:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  greet:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
-      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
-      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
-      - name: Send a hello world
-        uses: actions/github-script@v4.0.2
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - uses: actions/setup-node@v2.1.5
         with:
-          script: |
-            github.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: "Hello World! 👋",
-              body: "Hello 🌍 from GitHub Actions!"
-            });
+          node-version: '12'
+
+      - run: npx vuepress build
+      - name: Upload result of vuepress build
+        uses: actions/upload-artifact@v2
+        with:
+          name: static-website
+          path: .vuepress/dist
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+
+    if: ${{ github.ref == 'refs/heads/main' }}
+
+    steps:
+      - name: Download build of static website
+        uses: actions/download-artifact@v2
+        with:
+          name: static-website
+          path: .vuepress/dist
+      - name: Deploy to GitHub Pages
+        uses: crazy-max/ghaction-github-pages@v2
+        with:
+          build_dir: .vuepress/dist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
